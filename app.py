@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import requests
 import io
 
@@ -38,6 +39,8 @@ def cargar_datos():
     except Exception as e:
         st.error(f"⚠️ Error inesperado: {e}")
         return None
+# Configuración básica de la página
+st.set_page_config(page_title="Dashboard CompraGamer", layout="wide")
 
 # --- INICIO DE LA APP ---
 
@@ -125,6 +128,8 @@ if df is not None:
 
 else:
     st.warning("Esperando datos...")
+
+
 
 
 
