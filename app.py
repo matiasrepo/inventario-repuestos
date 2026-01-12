@@ -2,27 +2,22 @@ import streamlit as st
 import pandas as pd
 import requests
 import io
-import time  # <--- NUEVO: Para generar el timestamp único
+import time
 
-# Configuración básica de la página
+# Configuración básica
 st.set_page_config(page_title="Dashboard CompraGamer", layout="wide")
 
-# --- FUNCION DE CARGA DE DATOS ---
+# --- CARGA DE DATOS ---
 @st.cache_data(ttl=60)
 def cargar_datos():
     original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA"
     
-    # 1. Limpiamos la URL base
     base_url = original_url.split('?')[0]
-    
-    # 2. TRUCO ANTI-CACHÉ: Agregamos un parámetro 't' con la hora actual
-    # Esto fuerza a SharePoint a entregarnos el archivo nuevo sí o sí.
     timestamp = int(time.time())
     download_url = f"{base_url}?download=1&t={timestamp}"
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "*/*"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 
     try:
@@ -35,13 +30,10 @@ def cargar_datos():
         st.error(f"⚠️ Error: {e}")
         return None
 
-# --- INICIO DE LA APP ---
-
+# --- APP PRINCIPAL ---
 st.title("📊 Monitor de Stock/Repuestos")
 
-# --- BARRA LATERAL ---
 st.sidebar.header("⚙️ Configuración")
-
 if st.sidebar.button("🔄 Actualizar Datos Ahora"):
     st.cache_data.clear()
     st.rerun()
@@ -49,64 +41,59 @@ if st.sidebar.button("🔄 Actualizar Datos Ahora"):
 st.sidebar.divider()
 st.sidebar.header("🔍 Filtros")
 
-# Carga de datos
 df = cargar_datos()
 
 if df is not None:
-    # --- DIAGNÓSTICO (Para ver si la fila nueva llegó) ---
-    # Mostramos esto pequeño arriba para confirmar que Python leyó la fila nueva
-    st.caption(f"ℹ️ Filas totales leídas del Excel (sin filtros): **{len(df)}**")
+    st.caption(f"ℹ️ Filas totales en Excel: **{len(df)}**")
 
-    # --- CORRECCIÓN DE COLUMNAS ---
+    # Limpieza de columnas
     df.columns = df.columns.str.strip()
-    
     columnas_renombrar = {
-        'Pieza\n/Parte': 'Tipo',
-        'Estado\nCondición': 'Estado',
-        'Pieza /Parte': 'Tipo',
-        'Estado Condición': 'Estado'
+        'Pieza\n/Parte': 'Tipo', 'Estado\nCondición': 'Estado',
+        'Pieza /Parte': 'Tipo', 'Estado Condición': 'Estado'
     }
     df.rename(columns=columnas_renombrar, inplace=True)
-
-    # --- FILTROS ---
     
-    # IMPORTANTE: Manejo de valores vacíos (NaN)
-    # Rellenamos los vacíos con "Sin Dato" para que no desaparezcan del filtro
-    if 'Tipo' in df.columns:
-        df['Tipo'] = df['Tipo'].fillna('Sin Tipo')
-        tipos_disponibles = sorted(df['Tipo'].astype(str).unique())
-        
-        tipos_seleccionados = st.sidebar.multiselect(
-            "Filtrar por Tipo:",
-            options=tipos_disponibles,
-            default=tipos_disponibles
-        )
-    else:
-        st.error("Error: No se encontró la columna 'Tipo'.")
-        st.stop()
+    # Rellenar vacíos
+    if 'Tipo' in df.columns: df['Tipo'] = df['Tipo'].fillna('Sin Tipo')
+    if 'Estado' in df.columns: df['Estado'] = df['Estado'].fillna('Sin Estado')
 
+    # --- AQUÍ ESTÁ EL CAMBIO CLAVE EN LOS FILTROS ---
+    
+    # 1. Filtro TIPO (Sin 'default', para que empiece vacío)
+    tipos_disponibles = sorted(df['Tipo'].astype(str).unique())
+    tipos_seleccionados = st.sidebar.multiselect(
+        "Filtrar por Tipo:",
+        options=tipos_disponibles,
+        default=[] # <--- EMPÍEZA VACÍO (MUESTRA TODO)
+    )
+
+    # 2. Filtro ESTADO (Sin 'default')
     if 'Estado' in df.columns:
-        df['Estado'] = df['Estado'].fillna('Sin Estado')
         estados_disponibles = sorted(df['Estado'].astype(str).unique())
-        
         estados_seleccionados = st.sidebar.multiselect(
             "Filtrar por Estado:",
             options=estados_disponibles,
-            default=estados_disponibles
+            default=[] # <--- EMPÍEZA VACÍO (MUESTRA TODO)
         )
     else:
         estados_seleccionados = []
 
-    # APLICAR LÓGICA DE FILTRADO
-    if 'Estado' in df.columns:
-        df_filtrado = df[
-            (df['Tipo'].isin(tipos_seleccionados)) &
-            (df['Estado'].isin(estados_seleccionados))
-        ]
-    else:
-        df_filtrado = df[df['Tipo'].isin(tipos_seleccionados)]
+    # --- LÓGICA DE FILTRADO INTELIGENTE ---
+    # Empezamos con el DataFrame completo
+    df_filtrado = df.copy()
 
-    # --- MÉTRICAS ---
+    # Si el usuario seleccionó algún TIPO, aplicamos el filtro. Si no, lo saltamos.
+    if tipos_seleccionados:
+        df_filtrado = df_filtrado[df_filtrado['Tipo'].isin(tipos_seleccionados)]
+
+    # Si el usuario seleccionó algún ESTADO, aplicamos el filtro sobre lo anterior.
+    if estados_seleccionados:
+        df_filtrado = df_filtrado[df_filtrado['Estado'].isin(estados_seleccionados)]
+
+    # --- RESULTADOS ---
+    
+    # Métricas
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Filtrados", len(df_filtrado))
     
@@ -119,33 +106,23 @@ if df is not None:
 
     st.divider()
 
-    # --- PESTAÑAS ---
     tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
 
     with tab1:
-        st.write(f"### Mostrando {len(df_filtrado)} registros")
+        st.write(f"### Listado ({len(df_filtrado)} registros)")
         st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
     with tab2:
         if not df_filtrado.empty and 'Estado' in df_filtrado.columns:
             resumen = df_filtrado.groupby(['Tipo', 'Estado']).size().unstack(fill_value=0)
-            
             col_graf, col_tabla = st.columns([2, 1])
-            with col_graf:
-                st.bar_chart(resumen)
-            with col_tabla:
-                st.dataframe(resumen, use_container_width=True)
+            with col_graf: st.bar_chart(resumen)
+            with col_tabla: st.dataframe(resumen, use_container_width=True)
         else:
-            st.info("No hay datos para graficar.")
+            st.info("No hay datos para graficar con la selección actual.")
 
 else:
-    st.warning("Cargando datos...")
-
-
-
-
-
-
+    st.warning("Esperando datos...")
 
 
 
