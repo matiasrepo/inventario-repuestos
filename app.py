@@ -1,43 +1,36 @@
 import streamlit as st
-import pandas as pd     # <--- Esta es la línea que te faltaba
-import requests         # Necesario para "engañar" a SharePoint
-import io               # Necesario para leer el archivo descargado
-
+import pandas as pd
 import requests
 import io
 
-# --- FUNCION DE CARGA DE DATOS CORREGIDA (Evita error 403) ---
-@st.cache_data 
+# Configuración básica de la página
+st.set_page_config(page_title="Dashboard CompraGamer", layout="wide")
+
+# --- FUNCION DE CARGA DE DATOS ---
+@st.cache_data
 def cargar_datos():
     # 1. Tu enlace original
     original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA"
 
     # 2. Preparamos el link de descarga
-    # Nota: A veces es mejor limpiar el link quitando todo después del '?' antes de agregar download=1
     base_url = original_url.split('?')[0]
     download_url = base_url + '?download=1'
 
-    # 3. EL TRUCO: Headers para parecer un navegador (Chrome)
+    # 3. Headers para evitar error 403
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "*/*"
     }
 
     try:
-        # Hacemos la petición con requests usando los headers falsos
         response = requests.get(download_url, headers=headers, timeout=10)
-        
-        # Verificamos si hubo error (lanza excepción si es 403, 404, etc.)
         response.raise_for_status()
-
-        # Convertimos los bytes descargados en un archivo virtual para pandas
         archivo_virtual = io.BytesIO(response.content)
-        
         df = pd.read_excel(archivo_virtual)
         return df
 
     except requests.exceptions.HTTPError as err:
-        st.error(f"⚠️ Error de red (Código {err.response.status_code}): SharePoint bloqueó la conexión.")
+        st.error(f"⚠️ Error de red: {err}")
         return None
     except Exception as e:
         st.error(f"⚠️ Error inesperado: {e}")
@@ -47,27 +40,38 @@ def cargar_datos():
 
 st.title("📊 Monitor de Stock/Repuestos")
 
-# Llamamos a la función
 df = cargar_datos()
 
 if df is not None:
-    # Limpieza básica: Quitamos espacios en los nombres de columnas por si acaso
+    # --- CORRECCIÓN DE COLUMNAS (AQUÍ ESTÁ LA SOLUCIÓN) ---
+    # 1. Limpiamos los nombres (quitamos espacios extra)
     df.columns = df.columns.str.strip()
+    
+    # 2. Mapa de renombre basado en los nombres reales de tu Excel
+    columnas_renombrar = {
+        'Pieza\n/Parte': 'Tipo',       # Nombre en Excel -> Nombre en App
+        'Estado\nCondición': 'Estado', # Nombre en Excel -> Nombre en App
+        'Pieza /Parte': 'Tipo',        # (Opción por si pandas ya quitó el salto de línea)
+        'Estado Condición': 'Estado'
+    }
+    
+    # 3. Aplicamos el renombre
+    df.rename(columns=columnas_renombrar, inplace=True)
 
     # --- BARRA LATERAL (FILTROS) ---
     st.sidebar.header("🔍 Filtros")
 
     # Filtro TIPO
-    # Verificamos si existe la columna 'Tipo'
     if 'Tipo' in df.columns:
+        # Convertimos a string y ordenamos
         tipos_disponibles = sorted(df['Tipo'].astype(str).unique())
         tipos_seleccionados = st.sidebar.multiselect(
-            "Filtrar por Tipo:",
+            "Filtrar por Tipo (Pieza/Parte):",
             options=tipos_disponibles,
             default=tipos_disponibles
         )
     else:
-        st.error(f"No se encontró la columna 'Tipo'. Las columnas disponibles son: {list(df.columns)}")
+        st.error(f"⚠️ No se encontró la columna 'Pieza/Parte' o 'Tipo'. Columnas actuales: {list(df.columns)}")
         st.stop()
 
     # Filtro ESTADO
@@ -79,11 +83,10 @@ if df is not None:
             default=estados_disponibles
         )
     else:
-        st.warning("No se encontró la columna 'Estado'.")
-        estados_seleccionados = [] # Para evitar error abajo
+        st.warning("No se encontró la columna 'Estado/Condición'.")
+        estados_seleccionados = []
 
     # APLICAR FILTROS
-    # Si no hay columna Estado, filtramos solo por Tipo
     if 'Estado' in df.columns:
         df_filtrado = df[
             (df['Tipo'].isin(tipos_seleccionados)) &
@@ -100,35 +103,14 @@ if df is not None:
         col2.metric("Variedad de Partes", len(df_filtrado['Tipo'].unique()))
 
     if 'Estado' in df_filtrado.columns:
-        # Ejemplo: Contar cuántos 'A' hay visibles (ajusta 'A' según tus datos reales)
-        conteo_a = len(df_filtrado[df_filtrado['Estado'] == 'A'])
-        col3.metric("En Estado 'A'", conteo_a)
+        # Aquí puedes ajustar 'A' por el valor real que signifique "Buen estado" en tu Excel
+        conteo_ok = len(df_filtrado[df_filtrado['Estado'].astype(str).str.contains('OK|A|Nuevo', case=False, na=False)])
+        col3.metric("En Buen Estado (Est.)", conteo_ok)
 
     st.divider()
 
-    # --- VISTA PRINCIPAL ---
-    tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
+    # --- VISTA PRINCIPAL
 
-    with tab1:
-        st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
-
-    with tab2:
-        if not df_filtrado.empty and 'Estado' in df_filtrado.columns:
-            # Tabla dinámica: Filas=Tipo, Columnas=Estado, Valor=Cantidad
-            resumen = df_filtrado.groupby(['Tipo', 'Estado']).size().unstack(fill_value=0)
-            
-            st.write("### Cantidad de repuestos por Estado y Tipo")
-            st.dataframe(resumen, use_container_width=True)
-            
-            st.write("### Gráfico de Barras")
-            st.bar_chart(resumen)
-        elif df_filtrado.empty:
-            st.warning("No hay datos para mostrar con estos filtros.")
-        else:
-            st.info("Se necesitan columnas 'Tipo' y 'Estado' para generar el gráfico.")
-
-else:
-    st.warning("Esperando datos...")
 
 
 
