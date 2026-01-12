@@ -6,42 +6,25 @@ import io               # Necesario para leer el archivo descargado
 # Configuración básica de la página
 st.set_page_config(page_title="Dashboard CompraGamer", layout="wide")
 
-# --- FUNCION DE CARGA DE DATOS (CON CORRECCIÓN ERROR 403) ---
-@st.cache_data
+# --- FUNCION DE CARGA DE DATOS ---
+@st.cache_data  # Esto guarda los datos en memoria para no descargar el Excel a cada clic
 def cargar_datos():
     # 1. Tu enlace original
-    original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA?e=CcuD0i"
+    original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA?e=znye9A"
 
-    # 2. Preparamos el link de descarga
-    # Quitamos cualquier parámetro extra después del '?' y agregamos download=1
-    base_url = original_url.split('?')[0]
-    download_url = base_url + '?download=1'
-
-    # 3. EL TRUCO: Headers para parecer un navegador (Chrome) y evitar el Error 403
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "*/*"
-    }
+    # 2. Modificamos el link para que sea de descarga directa
+    # Reemplazamos lo que está después del '?' por 'download=1'
+    download_url = original_url.split('?')[0] + '?download=1'
 
     try:
-        # Hacemos la petición con requests usando los headers falsos
-        response = requests.get(download_url, headers=headers, timeout=10)
-        
-        # Verificamos si hubo error (lanza excepción si es 403, 404, etc.)
-        response.raise_for_status()
-
-        # Convertimos los bytes descargados en un archivo virtual para pandas
-        archivo_virtual = io.BytesIO(response.content)
-        
-        df = pd.read_excel(archivo_virtual)
+        # 3. Leemos el excel
+        df = pd.read_excel(download_url)
         return df
-
-    except requests.exceptions.HTTPError as err:
-        st.error(f"⚠️ Error de red (Código {err.response.status_code}): SharePoint bloqueó la conexión.")
-        st.info("Intenta regenerar el enlace público en SharePoint si el error persiste.")
-        return None
+        
     except Exception as e:
-        st.error(f"⚠️ Error inesperado: {e}")
+        # Mostramos el error en la pantalla de la app
+        st.error(f"⚠️ Error al cargar el archivo: {e}")
+        st.info("Asegúrate de que el enlace sea público y no requiera inicio de sesión corporativo.")
         return None
 
 # --- INICIO DE LA APP ---
@@ -52,15 +35,15 @@ st.title("📊 Monitor de Stock/Repuestos")
 df = cargar_datos()
 
 if df is not None:
-    # Limpieza básica: Quitamos espacios en los nombres de columnas
+    # Limpieza básica: Quitamos espacios en los nombres de columnas por si acaso
     df.columns = df.columns.str.strip()
 
     # --- BARRA LATERAL (FILTROS) ---
     st.sidebar.header("🔍 Filtros")
 
     # Filtro TIPO
+    # Verificamos si existe la columna 'Tipo'
     if 'Tipo' in df.columns:
-        # Convertimos a string para evitar errores si hay números mezclados
         tipos_disponibles = sorted(df['Tipo'].astype(str).unique())
         tipos_seleccionados = st.sidebar.multiselect(
             "Filtrar por Tipo:",
@@ -81,9 +64,10 @@ if df is not None:
         )
     else:
         st.warning("No se encontró la columna 'Estado'.")
-        estados_seleccionados = []
+        estados_seleccionados = [] # Para evitar error abajo
 
     # APLICAR FILTROS
+    # Si no hay columna Estado, filtramos solo por Tipo
     if 'Estado' in df.columns:
         df_filtrado = df[
             (df['Tipo'].isin(tipos_seleccionados)) &
@@ -100,7 +84,7 @@ if df is not None:
         col2.metric("Variedad de Partes", len(df_filtrado['Tipo'].unique()))
 
     if 'Estado' in df_filtrado.columns:
-        # Ejemplo: Contar cuántos 'A' hay visibles
+        # Ejemplo: Contar cuántos 'A' hay visibles (ajusta 'A' según tus datos reales)
         conteo_a = len(df_filtrado[df_filtrado['Estado'] == 'A'])
         col3.metric("En Estado 'A'", conteo_a)
 
@@ -114,7 +98,7 @@ if df is not None:
 
     with tab2:
         if not df_filtrado.empty and 'Estado' in df_filtrado.columns:
-            # Tabla dinámica
+            # Tabla dinámica: Filas=Tipo, Columnas=Estado, Valor=Cantidad
             resumen = df_filtrado.groupby(['Tipo', 'Estado']).size().unstack(fill_value=0)
             
             st.write("### Cantidad de repuestos por Estado y Tipo")
@@ -129,8 +113,6 @@ if df is not None:
 
 else:
     st.warning("Esperando datos...")
-
-
 
 
 
