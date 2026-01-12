@@ -109,8 +109,24 @@ if df is not None:
 
     st.divider()
 
-    # --- VISTA PRINCIPAL
+    # --- VISTA PRINCIPAL ---
+    tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
 
+    with tab1:
+        st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+
+    with tab2:
+        if not df_filtrado.empty and 'Estado' in df_filtrado.columns:
+            resumen = df_filtrado.groupby(['Tipo', 'Estado']).size().unstack(fill_value=0)
+            
+            st.write("### Cantidad por Estado y Tipo")
+            st.bar_chart(resumen)
+            st.write(resumen)
+        else:
+            st.info("No hay datos suficientes para graficar.")
+
+else:
+    st.warning("Esperando datos...")
 
 
 
