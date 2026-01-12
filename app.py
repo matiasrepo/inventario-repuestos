@@ -5,24 +5,19 @@ import pandas as pd
 st.set_page_config(page_title="Dashboard CompraGamer", layout="wide")
 
 # --- FUNCION DE CARGA DE DATOS ---
-@st.cache_data  # Esto guarda los datos en memoria para no descargar el Excel a cada clic
+st.cache_data
 def cargar_datos():
-    # 1. Tu enlace original
-    original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA?e=?download=1"
+    # PEGA TU LINK AQUÍ DENTRO DE LAS COMILLAS
+    original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA?e=TSeVya"
 
-    # 2. Modificamos el link para que sea de descarga directa
-    # Reemplazamos lo que está después del '?' por 'download=1'
-   
+    # Esta línea hace la magia: convierte el link de "ver" a "descargar"
+    download_url = original_url.split('?')[0] + '?download=1'
 
     try:
-        # 3. Leemos el excel
         df = pd.read_excel(download_url)
         return df
-        
     except Exception as e:
-        # Mostramos el error en la pantalla de la app
         st.error(f"⚠️ Error al cargar el archivo: {e}")
-        st.info("Asegúrate de que el enlace sea público y no requiera inicio de sesión corporativo.")
         return None
 
 # --- INICIO DE LA APP ---
@@ -111,4 +106,5 @@ if df is not None:
 
 else:
     st.warning("Esperando datos...")
+
 
