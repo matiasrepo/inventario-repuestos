@@ -124,32 +124,35 @@ if df is not None:
 
   # ... (esto va justo después de las métricas col1, col2, col3) ...
 
-    st.divider()
+  st.divider()
 
     tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
 
-    # Pestaña 1: Listado (Con selector de columnas)
-with tab1:
+    # --- PESTAÑA 1: TABLA (Con tus columnas fijas) ---
+    with tab1:
         st.write(f"### Listado ({len(df_filtrado)} registros)")
         
-        # --- MODIFICACIÓN AQUÍ ---
-        # 1. Define la lista exacta de nombres de columnas que quieres ver
-        # Nota: Usa los nombres YA RENOMBRADOS ('Tipo', 'Estado', etc.)
-        columnas_a_mostrar = ['Tipo', 'Estado', 'Marca', 'Modelo'] 
+        # 1. Definimos las columnas exactas que quieres ver
+        columnas_a_mostrar = ['Tipo', 'Estado', 'Marca', 'Modelo']
         
-        # 2. Filtramos para que no de error si alguna columna no existe en el Excel
+        # 2. Filtramos para evitar errores si alguna columna no existe en el Excel
         cols_finales = [c for c in columnas_a_mostrar if c in df_filtrado.columns]
         
-        # 3. Mostramos solo esas columnas
-        st.dataframe(df_filtrado[cols_finales], use_container_width=True, hide_index=True)
+        # 3. Mostramos la tabla
+        if cols_finales:
+            st.dataframe(df_filtrado[cols_finales], use_container_width=True, hide_index=True)
+        else:
+            # Si no encontró ninguna de las columnas, muestra todo para no dejar vacío
+            st.warning("No se encontraron las columnas especificadas. Mostrando tabla completa:")
+            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
-    # Pestaña 2: Gráfico de Torta
+    # --- PESTAÑA 2: GRÁFICO (Torta) ---
     with tab2:
         if not df_filtrado.empty:
             col_graf, col_tabla = st.columns([2, 1])
             
             with col_graf:
-                # Usamos la columna 'Tipo' para el gráfico
+                # Usamos la columna 'Tipo' para el gráfico de torta
                 if 'Tipo' in df_filtrado.columns:
                     fig = px.pie(
                         df_filtrado, 
@@ -170,6 +173,5 @@ with tab1:
             st.info("No hay datos para graficar con la selección actual.")
 
 else:
-    # Esto debe estar alineado al mismo nivel que 'if df is not None:'
+    # Este else pertenece al 'if df is not None' de mucho más arriba
     st.warning("Esperando datos o error en la carga...")
-
