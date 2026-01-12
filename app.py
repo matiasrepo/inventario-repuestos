@@ -8,7 +8,7 @@ st.set_page_config(page_title="Dashboard CompraGamer", layout="wide")
 @st.cache_data  # Esto guarda los datos en memoria para no descargar el Excel a cada clic
 def cargar_datos():
     # 1. Tu enlace original
-    original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA?e=P0VItT"
+    original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA?e=bO0rxS"
 
     # 2. Modificamos el link para que sea de descarga directa
     # Reemplazamos lo que está después del '?' por 'download=1'
@@ -111,5 +111,6 @@ if df is not None:
 
 else:
     st.warning("Esperando datos...")
+
 
 
