@@ -123,8 +123,7 @@ if df is not None:
         col3.metric("En Buen Estado", conteo_ok)
 
   # ... (esto va justo después de las métricas col1, col2, col3) ...
-
-  st.divider()
+st.divider()
 
     tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
 
