@@ -10,7 +10,7 @@ st.set_page_config(page_title="Dashboard CompraGamer", layout="wide")
 @st.cache_data
 def cargar_datos():
     # 1. Tu enlace original
-    original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA"
+    original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA?e=CcuD0i"
 
     # 2. Preparamos el link de descarga
     # Quitamos cualquier parámetro extra después del '?' y agregamos download=1
@@ -129,6 +129,7 @@ if df is not None:
 
 else:
     st.warning("Esperando datos...")
+
 
 
 
