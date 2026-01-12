@@ -128,6 +128,12 @@ if df is not None:
 else:
     st.warning("Esperando datos...")
 
+# --- BOTÓN DE ACTUALIZAR ---
+if st.sidebar.button("🔄 Actualizar Datos"):
+    st.cache_data.clear()  # Borra la memoria
+    st.rerun()             # Recarga la app
+
+
 
 
 
