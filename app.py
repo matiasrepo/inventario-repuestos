@@ -122,60 +122,59 @@ if df is not None:
         conteo_ok = len(df_filtrado[df_filtrado['Estado'].astype(str).str.contains('OK|A|Nuevo', case=False, na=False)])
         col3.metric("En Buen Estado", conteo_ok)
 
+  # ... (esto va justo después de las métricas col1, col2, col3) ...
+
     st.divider()
 
     tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
-    
-with tab1:
+
+    # Pestaña 1: Listado (Con selector de columnas)
+    with tab1:
         st.write(f"### Listado ({len(df_filtrado)} registros)")
         
-        # --- MODIFICACIÓN AQUÍ ---
+        # --- NUEVO: SELECTOR DE COLUMNAS ---
         all_columns = df_filtrado.columns.tolist()
         
-        # Selector de columnas (Por defecto mostramos 'Tipo' y 'Estado')
+        # Filtro multiselect para elegir columnas
         cols_usuario = st.multiselect(
-            "Selecciona columnas a mostrar:", 
+            "👁️ Selecciona columnas a mostrar:", 
             options=all_columns,
-            default=['Tipo', 'Estado'] # Las que aparecen marcadas al inicio
+            # Por defecto mostramos todas (o puedes poner una lista específica como ['Tipo', 'Estado'])
+            default=all_columns 
         )
         
-        # Si el usuario no elige nada, mostramos todo. Si elige, filtramos.
+        # Lógica: Si hay columnas seleccionadas, mostramos solo esas. Si no, mostramos todo.
         if cols_usuario:
             st.dataframe(df_filtrado[cols_usuario], use_container_width=True, hide_index=True)
         else:
-            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+            st.warning("Selecciona al menos una columna para visualizar.")
 
+    # Pestaña 2: Gráfico de Torta
     with tab2:
-        # --- 4. GRÁFICO DE TORTA ---
         if not df_filtrado.empty:
             col_graf, col_tabla = st.columns([2, 1])
             
             with col_graf:
-                # Agrupamos por Tipo para el gráfico
-                # (Puedes cambiar 'Tipo' por 'Estado' si prefieres ver eso en la torta)
+                # Usamos la columna 'Tipo' para el gráfico
                 if 'Tipo' in df_filtrado.columns:
                     fig = px.pie(
                         df_filtrado, 
                         names='Tipo', 
                         title='Distribución de Stock por Tipo',
-                        hole=0.4 # Estilo Donut
+                        hole=0.4 
                     )
                     fig.update_traces(textinfo='percent+label')
                     st.plotly_chart(fig, use_container_width=True)
             
             with col_tabla:
                 st.write("**Desglose Numérico:**")
-                # Tabla resumen simple
-                resumen = df_filtrado['Tipo'].value_counts().reset_index()
-                resumen.columns = ['Tipo', 'Cantidad']
-                st.dataframe(resumen, use_container_width=True, hide_index=True)
+                if 'Tipo' in df_filtrado.columns:
+                    resumen = df_filtrado['Tipo'].value_counts().reset_index()
+                    resumen.columns = ['Tipo', 'Cantidad']
+                    st.dataframe(resumen, use_container_width=True, hide_index=True)
         else:
             st.info("No hay datos para graficar con la selección actual.")
 
 else:
+    # Esto debe estar alineado al mismo nivel que 'if df is not None:'
     st.warning("Esperando datos o error en la carga...")
-
-
-
-
-
