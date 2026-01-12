@@ -45,7 +45,7 @@ df = cargar_datos()
 col_header, col_bell = st.columns([10, 1])
 
 with col_header:
-    st.title("📊 Monitor de Stock/Repuestos")
+    st.title("📊 Inventario de repuestos RMA")
 
 with col_bell:
     st.markdown("## 🔔") # Icono estático
@@ -126,9 +126,24 @@ if df is not None:
 
     tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
 
-    with tab1:
+ with tab1:
         st.write(f"### Listado ({len(df_filtrado)} registros)")
-        st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+        
+        # --- MODIFICACIÓN AQUÍ ---
+        all_columns = df_filtrado.columns.tolist()
+        
+        # Selector de columnas (Por defecto mostramos 'Tipo' y 'Estado')
+        cols_usuario = st.multiselect(
+            "Selecciona columnas a mostrar:", 
+            options=all_columns,
+            default=['Tipo', 'Estado'] # Las que aparecen marcadas al inicio
+        )
+        
+        # Si el usuario no elige nada, mostramos todo. Si elige, filtramos.
+        if cols_usuario:
+            st.dataframe(df_filtrado[cols_usuario], use_container_width=True, hide_index=True)
+        else:
+            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
     with tab2:
         # --- 4. GRÁFICO DE TORTA ---
@@ -159,6 +174,7 @@ if df is not None:
 
 else:
     st.warning("Esperando datos o error en la carga...")
+
 
 
 
