@@ -129,25 +129,19 @@ if df is not None:
     tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
 
     # Pestaña 1: Listado (Con selector de columnas)
-    with tab1:
+with tab1:
         st.write(f"### Listado ({len(df_filtrado)} registros)")
         
-        # --- NUEVO: SELECTOR DE COLUMNAS ---
-        all_columns = df_filtrado.columns.tolist()
+        # --- MODIFICACIÓN AQUÍ ---
+        # 1. Define la lista exacta de nombres de columnas que quieres ver
+        # Nota: Usa los nombres YA RENOMBRADOS ('Tipo', 'Estado', etc.)
+        columnas_a_mostrar = ['Tipo', 'Estado', 'Marca', 'Modelo'] 
         
-        # Filtro multiselect para elegir columnas
-        cols_usuario = st.multiselect(
-            "👁️ Selecciona columnas a mostrar:", 
-            options=all_columns,
-            # Por defecto mostramos todas (o puedes poner una lista específica como ['Tipo', 'Estado'])
-            default=all_columns 
-        )
+        # 2. Filtramos para que no de error si alguna columna no existe en el Excel
+        cols_finales = [c for c in columnas_a_mostrar if c in df_filtrado.columns]
         
-        # Lógica: Si hay columnas seleccionadas, mostramos solo esas. Si no, mostramos todo.
-        if cols_usuario:
-            st.dataframe(df_filtrado[cols_usuario], use_container_width=True, hide_index=True)
-        else:
-            st.warning("Selecciona al menos una columna para visualizar.")
+        # 3. Mostramos solo esas columnas
+        st.dataframe(df_filtrado[cols_finales], use_container_width=True, hide_index=True)
 
     # Pestaña 2: Gráfico de Torta
     with tab2:
@@ -178,3 +172,4 @@ if df is not None:
 else:
     # Esto debe estar alineado al mismo nivel que 'if df is not None:'
     st.warning("Esperando datos o error en la carga...")
+
