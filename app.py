@@ -125,8 +125,8 @@ if df is not None:
     st.divider()
 
     tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
-
- with tab1:
+    
+with tab1:
         st.write(f"### Listado ({len(df_filtrado)} registros)")
         
         # --- MODIFICACIÓN AQUÍ ---
