@@ -1,28 +1,42 @@
 import streamlit as st
-import pandas as pd
+import requests
+import io
 
-# Configuración básica de la página
-st.set_page_config(page_title="Dashboard CompraGamer", layout="wide")
-
-# --- FUNCION DE CARGA DE DATOS ---
-@st.cache_data  # Esto guarda los datos en memoria para no descargar el Excel a cada clic
+# --- FUNCION DE CARGA DE DATOS CORREGIDA (Evita error 403) ---
+@st.cache_data
 def cargar_datos():
     # 1. Tu enlace original
     original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA"
 
-    # 2. Modificamos el link para que sea de descarga directa
-    # Reemplazamos lo que está después del '?' por 'download=1'
-    download_url = original_url.split('?')[0] + '?download=1'
+    # 2. Preparamos el link de descarga
+    # Nota: A veces es mejor limpiar el link quitando todo después del '?' antes de agregar download=1
+    base_url = original_url.split('?')[0]
+    download_url = base_url + '?download=1'
+
+    # 3. EL TRUCO: Headers para parecer un navegador (Chrome)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "*/*"
+    }
 
     try:
-        # 3. Leemos el excel
-        df = pd.read_excel(download_url)
-        return df
+        # Hacemos la petición con requests usando los headers falsos
+        response = requests.get(download_url, headers=headers, timeout=10)
         
+        # Verificamos si hubo error (lanza excepción si es 403, 404, etc.)
+        response.raise_for_status()
+
+        # Convertimos los bytes descargados en un archivo virtual para pandas
+        archivo_virtual = io.BytesIO(response.content)
+        
+        df = pd.read_excel(archivo_virtual)
+        return df
+
+    except requests.exceptions.HTTPError as err:
+        st.error(f"⚠️ Error de red (Código {err.response.status_code}): SharePoint bloqueó la conexión.")
+        return None
     except Exception as e:
-        # Mostramos el error en la pantalla de la app
-        st.error(f"⚠️ Error al cargar el archivo: {e}")
-        st.info("Asegúrate de que el enlace sea público y no requiera inicio de sesión corporativo.")
+        st.error(f"⚠️ Error inesperado: {e}")
         return None
 
 # --- INICIO DE LA APP ---
@@ -111,6 +125,7 @@ if df is not None:
 
 else:
     st.warning("Esperando datos...")
+
 
 
 
