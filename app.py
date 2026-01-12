@@ -1,30 +1,23 @@
 import streamlit as st
 import pandas as pd
 
+# 1. Tu enlace original
+original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA?e=TSeVya"
 
-@st.cache_data
-def cargar_datos():
-    # Enlace modificado para descarga directa
-    url_sharepoint = "https://compragamer-my.sharepoint.com/personal/mnunez_compragamer_net/_layouts/15/download.aspx?sourcedoc={39bca3d7-c1a4-4137-b73c-9a50cc5ee654}"
+# 2. Modificamos el link para que sea de descarga directa
+# Reemplazamos lo que está después del '?' por 'download=1'
+download_url = original_url.split('?')[0] + '?download=1'
 
-    try:
-        # Intentamos leer directamente desde SharePoint
-        df = pd.read_excel(url_sharepoint)
+try:
+    # 3. Leemos el excel
+    df = pd.read_excel(download_url)
+    
+    # Mostrar las primeras filas para verificar
+    print("Archivo cargado exitosamente:")
+    print(df.head())
 
-        # --- (Aquí va el resto de tu limpieza de datos igual que antes) ---
-        df.columns = df.columns.str.replace('\n', ' ').str.strip()
-        mapa_columnas = {
-            'Pieza /Parte': 'Tipo',
-            'Estado Condición': 'Estado',
-            'Descripción De Producto': 'Descripcion',
-            'ID Repuesto': 'ID',
-            'SN Repuesto': 'Serial',
-            'Disponible': 'Disponible'
-        }
-        df = df.rename(columns={k: v for k, v in mapa_columnas.items() if k in df.columns})
-        df = df.fillna("-")
-        return df
-
+except Exception as e:
+    print(f"Hubo un error al leer el archivo: {e}")
     except Exception as e:
         st.error(f"⚠️ Error de acceso: {e}")
         st.info("Es muy probable que SharePoint esté bloqueando a Python porque requiere usuario y contraseña.")
@@ -92,4 +85,5 @@ if df is not None:
             st.dataframe(resumen, use_container_width=True)
             st.bar_chart(resumen)
         else:
+
             st.warning("No hay datos para mostrar con estos filtros.")
