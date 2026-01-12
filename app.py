@@ -7,7 +7,8 @@ import requests
 import io
 
 # --- FUNCION DE CARGA DE DATOS CORREGIDA (Evita error 403) ---
-@st.cache_data def cargar_datos():
+@st.cache_data 
+def cargar_datos():
     # 1. Tu enlace original
     original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA"
 
@@ -128,6 +129,7 @@ if df is not None:
 
 else:
     st.warning("Esperando datos...")
+
 
 
 
