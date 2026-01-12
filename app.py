@@ -119,19 +119,22 @@ if df is not None:
     tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
 
     # Pestaña 1: Tabla con columnas específicas
+    # --- PESTAÑA 1: TABLA ---
     with tab1:
         st.write(f"### Listado ({len(df_filtrado)} registros)")
         
-        # Columnas fijas solicitadas
+        # --- MODIFICAR ESTA LÍNEA ---
+        # Agrega 'Descripción' y 'Serial' (Asegúrate que se llamen así en tu Excel)
         columnas_a_mostrar = ['Tipo', 'Estado', 'Marca', 'Modelo', 'Descripción', 'Serial']
         
-        # Verificamos cuáles existen realmente en el Excel para no dar error
+        # Verificamos cuáles existen realmente para no dar error
         cols_finales = [c for c in columnas_a_mostrar if c in df_filtrado.columns]
         
         if cols_finales:
             st.dataframe(df_filtrado[cols_finales], use_container_width=True, hide_index=True)
         else:
-            st.warning("No se encontraron las columnas especificadas (Marca, Modelo, etc). Mostrando tabla completa:")
+            st.warning("⚠️ No se encontraron las columnas. Verifica que en el Excel se llamen exactamente: Descripción, Serial, Marca, Modelo.")
+            # Mostramos todo por si acaso fallan los nombres
             st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
     # Pestaña 2: Gráfico de Torta
@@ -162,4 +165,5 @@ if df is not None:
 else:
     # Este else cierra el 'if df is not None' del principio
     st.warning("Esperando datos o error en la carga...")
+
 
