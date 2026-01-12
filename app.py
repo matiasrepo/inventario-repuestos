@@ -119,3 +119,68 @@ if rol == "👤 Usuario (Solicitante)":
 # ==========================================
 elif rol == "🛡️ Admin (Encargado)":
     st.title("🛡️ Centro de Aprobaciones")
+    
+    pendientes = [s for s in st.session_state.solicitudes if s['status'] == 'Pendiente']
+    
+    col_metric1, col_metric2 = st.columns(2)
+    col_metric1.metric("Solicitudes Pendientes", len(pendientes))
+    col_metric2.metric("Items Entregados (Sesión)", len(st.session_state.stock_reservado))
+    
+    st.divider()
+
+    if not pendientes:
+        st.info("🎉 No hay solicitudes pendientes. Todo al día.")
+    else:
+        st.write("### Bandeja de Entrada")
+        
+        for i, sol in enumerate(pendientes):
+            # Usamos un container para agrupar visualmente la tarjeta
+            with st.container(border=True):
+                # Encabezado de la tarjeta
+                st.markdown(f"#### 📌 Solicitud #{sol['id_solicitud']} | {sol['item_tipo']}")
+                
+                # División en 3 columnas para mostrar la info detallada
+                col_datos, col_notas, col_botones = st.columns([2, 2, 1])
+                
+                with col_datos:
+                    st.caption("👤 DATOS DEL SOLICITANTE")
+                    st.write(f"**Nombre:** {sol['solicitante']}")
+                    st.write(f"**Hora:** {sol['fecha']}")
+                    st.divider()
+                    st.caption("📦 DATOS DEL REPUESTO")
+                    # Usamos markdown para resaltar el estado
+                    st.markdown(f"Estado: **:orange[{sol['item_estado']}]**")
+                    st.markdown(f"ID Interno: `{sol['item_id']}`")
+
+                with col_notas:
+                    st.caption("📝 MOTIVO / NOTAS")
+                    # Mostramos la nota en un recuadro de info para que destaque
+                    nota_texto = sol['notas'] if sol['notas'] else "Sin notas adicionales."
+                    st.info(nota_texto)
+
+                with col_botones:
+                    st.write("") # Espacio vertical para alinear
+                    st.write("") 
+                    # Botones grandes
+                    if st.button("✅ Aprobar", key=f"btn_acc_{i}", use_container_width=True, type="primary"):
+                        sol['status'] = 'Aprobada'
+                        st.session_state.stock_reservado.append(sol['item_id'])
+                        st.rerun()
+                    
+                    if st.button("❌ Rechazar", key=f"btn_rej_{i}", use_container_width=True):
+                        sol['status'] = 'Rechazada'
+                        st.rerun()
+
+    # Historial de decisiones
+    st.divider()
+    with st.expander("Ver Historial Completo"):
+        historial = pd.DataFrame(st.session_state.solicitudes)
+        if not historial.empty:
+            # Reordenamos columnas para que sea más legible
+            columnas_orden = ['id_solicitud', 'status', 'solicitante', 'item_tipo', 'item_estado', 'notas', 'fecha']
+            # Filtramos solo las columnas que existen en el DF (por si acaso)
+            cols_existentes = [c for c in columnas_orden if c in historial.columns]
+            st.dataframe(historial[cols_existentes], use_container_width=True, hide_index=True)
+        else:
+            st.text("Sin historial.")
+
