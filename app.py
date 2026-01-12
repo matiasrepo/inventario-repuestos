@@ -137,5 +137,75 @@ if rol == "👤 Usuario (Solicitante)":
                 
                 c1, c2, c3 = st.columns(3)
                 c1.markdown(f"**Componente:** {fila_completa['Tipo de repuesto']}")
-                c2.markdown(
+                c2.markdown(f"**SN:** `{fila_completa['SN Repuesto']}`")
+                c3.markdown(f"**Estado:** {fila_completa['Estado de repuesto']}")
+                
+                st.markdown(f"**Descripción:** {fila_completa['Descripcion']}")
+                
+                nombre = st.text_input("Tu Nombre:")
+                notas = st.text_area("Notas adicionales:")
+                
+                if st.button("Enviar Solicitud 🚀", type="primary"):
+                    if not nombre:
+                        st.error("Falta tu nombre.")
+                    else:
+                        # Guardamos TODOS los datos de la fila en 'datos_full'
+                        nueva_solicitud = {
+                            "id_solicitud": len(st.session_state.solicitudes) + 1,
+                            "fecha": datetime.now().strftime("%d/%m %H:%M"),
+                            "solicitante": nombre,
+                            "sys_id": fila_completa['SYS_ID'], # ID único del sistema
+                            "resumen": f"{fila_completa['Tipo de repuesto']} (SN: {fila_completa['SN Repuesto']})",
+                            "notas_usuario": notas,
+                            "datos_full": fila_completa.to_dict(), # <--- AQUÍ VA LA DATA COMPLETA PARA EL ADMIN
+                            "status": "Pendiente"
+                        }
+                        st.session_state.solicitudes.append(nueva_solicitud)
+                        st.toast("Solicitud enviada exitosamente", icon="✅")
+                        st.balloons()
 
+# ==========================================
+#  VISTA 2: ADMIN (INFO COMPLETA)
+# ==========================================
+elif rol == "🛡️ Admin (Encargado)":
+    st.title("🛡️ Centro de Aprobaciones")
+    
+    pendientes = [s for s in st.session_state.solicitudes if s['status'] == 'Pendiente']
+    st.metric("Pendientes de Revisión", len(pendientes))
+    st.divider()
+
+    if not pendientes:
+        st.info("🎉 Todo limpio. No hay solicitudes pendientes.")
+    else:
+        for i, sol in enumerate(pendientes):
+            data_item = sol['datos_full'] # Recuperamos la data completa
+            
+            with st.container(border=True):
+                # Encabezado: Quién pide y Qué pide (Resumido)
+                st.markdown(f"#### 📌 Solicitud #{sol['id_solicitud']} | {sol['resumen']}")
+                st.caption(f"Solicitado por: **{sol['solicitante']}** el {sol['fecha']}")
+                
+                if sol['notas_usuario']:
+                    st.info(f"🗣️ Nota del usuario: {sol['notas_usuario']}")
+
+                # --- SECCIÓN: FICHA TÉCNICA COMPLETA ---
+                with st.expander("🔍 Ver DETALLES COMPLETOS del Ítem (Ubicación, Precios, etc.)", expanded=True):
+                    # Convertimos el diccionario de datos en un DataFrame transpuesto para leerlo verticalmente
+                    df_detalle = pd.DataFrame.from_dict(data_item, orient='index', columns=['Valor'])
+                    st.dataframe(df_detalle, use_container_width=True)
+
+                # Botones de Acción
+                col_btn_ok, col_btn_no = st.columns([1, 1])
+                with col_btn_ok:
+                    if st.button("✅ Aprobar y Descontar", key=f"ok_{i}", type="primary", use_container_width=True):
+                        sol['status'] = 'Aprobada'
+                        st.session_state.stock_reservado.append(sol['sys_id'])
+                        st.rerun()
+                with col_btn_no:
+                    if st.button("❌ Rechazar", key=f"no_{i}", use_container_width=True):
+                        sol['status'] = 'Rechazada'
+                        st.rerun()
+
+    # Historial
+    if st.checkbox("Ver Historial de decisiones"):
+        st.dataframe(pd.DataFrame(st.session_state.solicitudes))
