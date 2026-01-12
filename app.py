@@ -1,45 +1,37 @@
 import streamlit as st
 import pandas as pd
 
-# Configuración de la página
-st.set_page_config(page_title="Inventario de Repuestos", layout="wide")
 
-st.title("📦 Control de Repuestos Serializados")
-
-
-# --- FUNCIÓN PARA CARGAR DATOS ---
 @st.cache_data
 def cargar_datos():
+    # Enlace modificado para descarga directa
+    url_sharepoint = "https://compragamer-my.sharepoint.com/personal/mnunez_compragamer_net/_layouts/15/download.aspx?sourcedoc={39bca3d7-c1a4-4137-b73c-9a50cc5ee654}"
+
     try:
-        # LEEMOS EL ARCHIVO EXCEL
-        # Asegúrate de que tu archivo en la carpeta se llame 'datos.xlsx'
-        df = pd.read_excel("datos.xlsx")
+        # Intentamos leer directamente desde SharePoint
+        df = pd.read_excel(url_sharepoint)
+
+        # --- (Aquí va el resto de tu limpieza de datos igual que antes) ---
+        df.columns = df.columns.str.replace('\n', ' ').str.strip()
+        mapa_columnas = {
+            'Pieza /Parte': 'Tipo',
+            'Estado Condición': 'Estado',
+            'Descripción De Producto': 'Descripcion',
+            'ID Repuesto': 'ID',
+            'SN Repuesto': 'Serial',
+            'Disponible': 'Disponible'
+        }
+        df = df.rename(columns={k: v for k, v in mapa_columnas.items() if k in df.columns})
+        df = df.fillna("-")
+        return df
+
     except Exception as e:
-        st.error(f"Error: No se encontró 'datos.xlsx' o el formato es incorrecto. Detalle: {e}")
+        st.error(f"⚠️ Error de acceso: {e}")
+        st.info("Es muy probable que SharePoint esté bloqueando a Python porque requiere usuario y contraseña.")
         return None
 
-    # LIMPIEZA DE COLUMNAS
-    # Limpiamos los nombres de las columnas (quitamos espacios extra y saltos de línea)
-    df.columns = df.columns.str.replace('\n', ' ').str.strip()
 
-    # Mapa de columnas basado en tu archivo
-    mapa_columnas = {
-        'Pieza /Parte': 'Tipo',
-        'Estado Condición': 'Estado',
-        'Descripción De Producto': 'Descripcion',
-        'ID Repuesto': 'ID',
-        'SN Repuesto': 'Serial',
-        'Destino (tipo)': 'Destino',
-        'Disponible': 'Disponible'
-    }
-
-    # Renombramos
-    df = df.rename(columns={k: v for k, v in mapa_columnas.items() if k in df.columns})
-
-    # Rellenar vacíos para que no de error visual
-    df = df.fillna("-")
-
-    return df
+# ... resto del código ...
 
 
 df = cargar_datos()
