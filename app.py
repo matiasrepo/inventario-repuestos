@@ -123,7 +123,7 @@ if df is not None:
         st.write(f"### Listado ({len(df_filtrado)} registros)")
         
         # Columnas fijas solicitadas
-        columnas_a_mostrar = ['Tipo', 'Estado', 'Marca', 'Modelo']
+        columnas_a_mostrar = ['Tipo', 'Estado', 'Marca', 'Modelo', 'Descripción', 'Serial']
         
         # Verificamos cuáles existen realmente en el Excel para no dar error
         cols_finales = [c for c in columnas_a_mostrar if c in df_filtrado.columns]
@@ -162,3 +162,4 @@ if df is not None:
 else:
     # Este else cierra el 'if df is not None' del principio
     st.warning("Esperando datos o error en la carga...")
+
