@@ -84,4 +84,30 @@ if df is not None:
     if 'Estado' in df_filtrado.columns:
         # Ejemplo: Contar cuántos 'A' hay visibles (ajusta 'A' según tus datos reales)
         conteo_a = len(df_filtrado[df_filtrado['Estado'] == 'A'])
-        col3.metric("
+        col3.metric("En Estado 'A'", conteo_a)
+
+    st.divider()
+
+    # --- VISTA PRINCIPAL ---
+    tab1, tab2 = st.tabs(["📋 Listado Detallado", "📊 Resumen Gráfico"])
+
+    with tab1:
+        st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+
+    with tab2:
+        if not df_filtrado.empty and 'Estado' in df_filtrado.columns:
+            # Tabla dinámica: Filas=Tipo, Columnas=Estado, Valor=Cantidad
+            resumen = df_filtrado.groupby(['Tipo', 'Estado']).size().unstack(fill_value=0)
+            
+            st.write("### Cantidad de repuestos por Estado y Tipo")
+            st.dataframe(resumen, use_container_width=True)
+            
+            st.write("### Gráfico de Barras")
+            st.bar_chart(resumen)
+        elif df_filtrado.empty:
+            st.warning("No hay datos para mostrar con estos filtros.")
+        else:
+            st.info("Se necesitan columnas 'Tipo' y 'Estado' para generar el gráfico.")
+
+else:
+    st.warning("Esperando datos...")
