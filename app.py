@@ -3,7 +3,6 @@ import pandas as pd
 import requests
 import io
 import time
-import plotly.express as px
 from datetime import datetime
 
 # Configuración básica
@@ -11,13 +10,13 @@ st.set_page_config(page_title="Gestión Stock & Solicitudes", layout="wide")
 
 # --- 1. GESTIÓN DE ESTADO ---
 if 'solicitudes' not in st.session_state:
-    st.session_state.solicitudes = [] 
+    st.session_state.solicitudes = []
 if 'stock_reservado' not in st.session_state:
-    st.session_state.stock_reservado = [] 
+    st.session_state.stock_reservado = []
 if 'total_filas_anterior' not in st.session_state:
     st.session_state.total_filas_anterior = 0
 
-# --- 2. CARGA DE DATOS ---
+# --- 2. CARGA DE DATOS Y ESTANDARIZACIÓN ---
 @st.cache_data(ttl=60)
 def cargar_datos():
     original_url = "https://compragamer-my.sharepoint.com/:x:/g/personal/mnunez_compragamer_net/IQDXo7w5pME3Qbc8mlDMXuZUAeYwlVbk5qJnCM3NB3oM6qA"
@@ -32,27 +31,60 @@ def cargar_datos():
         archivo_virtual = io.BytesIO(response.content)
         df = pd.read_excel(archivo_virtual)
         
+        # Limpieza básica de espacios en nombres de columnas
         df.columns = df.columns.str.strip()
-        mapa_cols = {
-            'Pieza\n/Parte': 'Tipo', 'Estado\nCondición': 'Estado',
-            'Pieza /Parte': 'Tipo', 'Estado Condición': 'Estado'
-        }
-        df.rename(columns=mapa_cols, inplace=True)
-        df['ID_Ref'] = df.index 
         
-        if 'Tipo' not in df.columns: df['Tipo'] = 'Desconocido'
-        if 'Estado' not in df.columns: df['Estado'] = 'Desconocido'
-        df['Tipo'] = df['Tipo'].fillna('Sin Tipo')
+        # --- MAPEO DE COLUMNAS (AJUSTAR SEGÚN TU EXCEL REAL) ---
+        # Izquierda: Nombre en tu Excel -> Derecha: Nombre deseado en la App
+        mapa_columnas = {
+            'Pieza\n/Parte': 'Tipo de repuesto',
+            'Pieza /Parte': 'Tipo de repuesto',
+            'Tipo': 'Tipo de repuesto',
+            
+            'Estado\nCondición': 'Estado de repuesto',
+            'Estado Condición': 'Estado de repuesto',
+            'Estado': 'Estado de repuesto',
+            
+            'Serial': 'SN Repuesto',
+            'SN': 'SN Repuesto',
+            'S/N': 'SN Repuesto',
+            
+            'Producto': 'ID de producto',
+            'ID Producto': 'ID de producto',
+            
+            'Descripcion': 'Descripcion',
+            'Descripción': 'Descripcion',
+            
+            'Observaciones': 'Observación',
+            'Observacion': 'Observación',
+            'Notas': 'Observación'
+        }
+        
+        # Renombramos
+        df.rename(columns=mapa_columnas, inplace=True)
+        
+        # Generamos ID Único para el sistema
+        df['SYS_ID'] = df.index 
+
+        # Aseguramos que existan las columnas clave (relleno si faltan)
+        columnas_requeridas = ['SN Repuesto', 'ID de producto', 'Descripcion', 'Tipo de repuesto', 'Estado de repuesto', 'Observación']
+        for col in columnas_requeridas:
+            if col not in df.columns:
+                df[col] = '-' # Rellenar con guion si no existe en el excel original
+        
+        # Relleno de nulos visuales
+        df.fillna('', inplace=True)
         
         return df
     except Exception as e:
-        st.error(f"⚠️ Error SharePoint: {e}")
+        st.error(f"⚠️ Error al procesar datos: {e}")
         return None
 
 df_raw = cargar_datos()
 
+# Filtro de items ya entregados (no mostrar en lista)
 if df_raw is not None:
-    df_disponible = df_raw[~df_raw['ID_Ref'].isin(st.session_state.stock_reservado)].copy()
+    df_disponible = df_raw[~df_raw['SYS_ID'].isin(st.session_state.stock_reservado)].copy()
 else:
     df_disponible = pd.DataFrame()
 
@@ -62,20 +94,30 @@ rol = st.sidebar.radio("Seleccione Perfil:", ["👤 Usuario (Solicitante)", "�
 st.sidebar.divider()
 
 # ==========================================
-#  VISTA 1: USUARIO
+#  VISTA 1: USUARIO (COLUMNAS LIMITADAS)
 # ==========================================
 if rol == "👤 Usuario (Solicitante)":
     st.title("📦 Catálogo de Repuestos")
-    st.caption("Seleccione un ítem para solicitarlo al encargado.")
+    st.caption("Seleccione un ítem para solicitarlo.")
 
     if df_disponible.empty:
         st.warning("No hay datos disponibles.")
     else:
-        filtro_tipo = st.multiselect("Filtrar por Tipo", df_disponible['Tipo'].unique())
-        df_view = df_disponible if not filtro_tipo else df_disponible[df_disponible['Tipo'].isin(filtro_tipo)]
+        # Filtros
+        tipos = df_disponible['Tipo de repuesto'].unique()
+        filtro_tipo = st.multiselect("Filtrar por Tipo", tipos)
         
+        df_filtrado = df_disponible if not filtro_tipo else df_disponible[df_disponible['Tipo de repuesto'].isin(filtro_tipo)]
+        
+        # --- DEFINICIÓN DE VISTA USUARIO ---
+        # Solo mostramos las columnas que pediste
+        cols_usuario = ['SN Repuesto', 'ID de producto', 'Descripcion', 'Tipo de repuesto', 'Estado de repuesto', 'Observación']
+        
+        # Creamos un dataframe SOLO con esas columnas para mostrar
+        df_vista_usuario = df_filtrado[cols_usuario]
+
         selection = st.dataframe(
-            df_view, 
+            df_vista_usuario, 
             use_container_width=True, 
             hide_index=True,
             on_select="rerun",
@@ -84,103 +126,16 @@ if rol == "👤 Usuario (Solicitante)":
 
         if selection["selection"]["rows"]:
             idx_visual = selection["selection"]["rows"][0]
-            item_data = df_view.iloc[idx_visual]
+            
+            # TRUCO: Recuperamos la fila COMPLETA del dataframe original usando el índice
+            # Esto es vital para pasarle toda la info oculta al Admin
+            fila_completa = df_filtrado.iloc[idx_visual]
             
             st.divider()
             with st.container(border=True):
-                st.subheader("📝 Nueva Solicitud")
-                c1, c2 = st.columns(2)
-                c1.info(f"**Item:** {item_data['Tipo']}")
-                c2.info(f"**Estado:** {item_data['Estado']}")
+                st.subheader("📝 Confirmar Solicitud")
                 
-                solicitante = st.text_input("Tu Nombre:", placeholder="Ej. Juan Pérez")
-                notas = st.text_area("Motivo / Notas:", placeholder="Para reparación de...")
-                
-                if st.button("Enviar Solicitud 🚀", type="primary"):
-                    if not solicitante:
-                        st.error("Por favor ingresa tu nombre.")
-                    else:
-                        nueva_solicitud = {
-                            "id_solicitud": len(st.session_state.solicitudes) + 1,
-                            "fecha": datetime.now().strftime("%H:%M:%S"),
-                            "solicitante": solicitante,
-                            "item_id": item_data['ID_Ref'],
-                            "item_tipo": item_data['Tipo'],
-                            "item_estado": item_data['Estado'],
-                            "notas": notas,
-                            "status": "Pendiente"
-                        }
-                        st.session_state.solicitudes.append(nueva_solicitud)
-                        st.toast("Solicitud enviada al administrador", icon="✅")
-                        st.balloons()
-
-# ==========================================
-#  VISTA 2: ADMIN (MEJORADA)
-# ==========================================
-elif rol == "🛡️ Admin (Encargado)":
-    st.title("🛡️ Centro de Aprobaciones")
-    
-    pendientes = [s for s in st.session_state.solicitudes if s['status'] == 'Pendiente']
-    
-    col_metric1, col_metric2 = st.columns(2)
-    col_metric1.metric("Solicitudes Pendientes", len(pendientes))
-    col_metric2.metric("Items Entregados (Sesión)", len(st.session_state.stock_reservado))
-    
-    st.divider()
-
-    if not pendientes:
-        st.info("🎉 No hay solicitudes pendientes. Todo al día.")
-    else:
-        st.write("### Bandeja de Entrada")
-        
-        for i, sol in enumerate(pendientes):
-            # Usamos un container para agrupar visualmente la tarjeta
-            with st.container(border=True):
-                # Encabezado de la tarjeta
-                st.markdown(f"#### 📌 Solicitud #{sol['id_solicitud']} | {sol['item_tipo']}")
-                
-                # División en 3 columnas para mostrar la info detallada
-                col_datos, col_notas, col_botones = st.columns([2, 2, 1])
-                
-                with col_datos:
-                    st.caption("👤 DATOS DEL SOLICITANTE")
-                    st.write(f"**Nombre:** {sol['solicitante']}")
-                    st.write(f"**Hora:** {sol['fecha']}")
-                    st.divider()
-                    st.caption("📦 DATOS DEL REPUESTO")
-                    # Usamos markdown para resaltar el estado
-                    st.markdown(f"Estado: **:orange[{sol['item_estado']}]**")
-                    st.markdown(f"ID Interno: `{sol['item_id']}`")
-
-                with col_notas:
-                    st.caption("📝 MOTIVO / NOTAS")
-                    # Mostramos la nota en un recuadro de info para que destaque
-                    nota_texto = sol['notas'] if sol['notas'] else "Sin notas adicionales."
-                    st.info(nota_texto)
-
-                with col_botones:
-                    st.write("") # Espacio vertical para alinear
-                    st.write("") 
-                    # Botones grandes
-                    if st.button("✅ Aprobar", key=f"btn_acc_{i}", use_container_width=True, type="primary"):
-                        sol['status'] = 'Aprobada'
-                        st.session_state.stock_reservado.append(sol['item_id'])
-                        st.rerun()
-                    
-                    if st.button("❌ Rechazar", key=f"btn_rej_{i}", use_container_width=True):
-                        sol['status'] = 'Rechazada'
-                        st.rerun()
-
-    # Historial de decisiones
-    st.divider()
-    with st.expander("Ver Historial Completo"):
-        historial = pd.DataFrame(st.session_state.solicitudes)
-        if not historial.empty:
-            # Reordenamos columnas para que sea más legible
-            columnas_orden = ['id_solicitud', 'status', 'solicitante', 'item_tipo', 'item_estado', 'notas', 'fecha']
-            # Filtramos solo las columnas que existen en el DF (por si acaso)
-            cols_existentes = [c for c in columnas_orden if c in historial.columns]
-            st.dataframe(historial[cols_existentes], use_container_width=True, hide_index=True)
-        else:
-            st.text("Sin historial.")
+                c1, c2, c3 = st.columns(3)
+                c1.markdown(f"**Componente:** {fila_completa['Tipo de repuesto']}")
+                c2.markdown(
 
